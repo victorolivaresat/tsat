@@ -3,7 +3,7 @@
 A demo application to illustrate how Inertia.js works.
 
 <!-- ![](https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Apuesta_total_logo.svg/2560px-Apuesta_total_logo.svg.png) -->
-<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Apuesta_total_logo.svg/2560px-Apuesta_total_logo.svg.png" alt="logo" style="height: 100px;">
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Apuesta_total_logo.svg/2560px-Apuesta_total_logo.svg.png" alt="logo" width="100">
 
 
 ## Installation
