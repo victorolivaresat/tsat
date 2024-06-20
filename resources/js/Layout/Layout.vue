@@ -4,9 +4,9 @@
     <div class="md:flex md:flex-col">
       <div class="md:flex md:flex-col md:h-screen">
         <div class="md:flex md:shrink-0">
-          <div class="flex items-center justify-between px-6 py-4 bg-indigo-900 md:shrink-0 md:justify-center md:w-56">
+          <div class="flex items-center justify-between px-6 py-4 bg-indigo-900 md:shrink-0 md:justify-center md:w-48">
             <Link class="mt-1" href="/">
-              <logo class="fill-white" width="120" height="28" />
+              <logo class="fill-white" width="140" />
             </Link>
             <dropdown class="md:hidden" placement="bottom-end">
               <template #default>
@@ -19,8 +19,7 @@
               </template>
             </dropdown>
           </div>
-          <div class="md:text-md flex items-center justify-between p-4 w-full text-sm bg-white border-b md:px-12 md:py-0">
-            <div class="mr-4 mt-1">{{ auth.user.account.name }}</div>
+          <div class="md:text-md flex items-center justify-end p-4 w-full text-sm bg-white border-b md:px-6 md:py-0">
             <dropdown class="mt-1" placement="bottom-end">
               <template #default>
                 <div class="group flex items-center cursor-pointer select-none">
@@ -42,7 +41,7 @@
           </div>
         </div>
         <div class="md:flex md:grow md:overflow-hidden">
-          <main-menu class="hidden shrink-0 p-12 w-56 bg-indigo-800 overflow-y-auto md:block" />
+          <main-menu class="hidden shrink-0 p-8 w-48 bg-indigo-800 overflow-y-auto md:block" />
           <div class="px-4 py-8 md:flex-1 md:p-12 md:overflow-y-auto" scroll-region>
             <flash-messages />
             <slot />
@@ -54,21 +53,23 @@
 </template>
 
 <script>
+
+import FlashMessages from '@/Shared/FlashMessages.vue'
+import Dropdown from '@/Shared/Dropdown.vue'
+import MainMenu from '@/Layout/MainMenu.vue'
 import { Link } from '@inertiajs/vue3'
 import Icon from '@/Shared/Icon.vue'
 import Logo from '@/Shared/Logo.vue'
-import Dropdown from '@/Shared/Dropdown.vue'
-import MainMenu from '@/Shared/MainMenu.vue'
-import FlashMessages from '@/Shared/FlashMessages.vue'
 
 export default {
   components: {
-    Dropdown,
     FlashMessages,
+    Dropdown,
+    MainMenu,
     Icon,
     Link,
     Logo,
-    MainMenu,
+
   },
   props: {
     auth: Object,

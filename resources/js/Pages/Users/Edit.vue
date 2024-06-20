@@ -17,9 +17,8 @@
           <text-input v-model="form.last_name" :error="form.errors.last_name" class="pb-8 pr-6 w-full lg:w-1/2" label="Last name" />
           <text-input v-model="form.email" :error="form.errors.email" class="pb-8 pr-6 w-full lg:w-1/2" label="Email" />
           <text-input v-model="form.password" :error="form.errors.password" class="pb-8 pr-6 w-full lg:w-1/2" type="password" autocomplete="new-password" label="Password" />
-          <select-input v-model="form.owner" :error="form.errors.owner" class="pb-8 pr-6 w-full lg:w-1/2" label="Owner">
-            <option :value="true">Yes</option>
-            <option :value="false">No</option>
+          <select-input v-model="form.roles" :error="form.errors.roles" multiple class="pb-8 pr-6 w-full lg:w-1/2" label="Roles">
+            <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.name }}</option>            
           </select-input>
           <file-input v-model="form.photo" :error="form.errors.photo" class="pb-8 pr-6 w-full lg:w-1/2" type="file" accept="image/*" label="Photo" />
         </div>
@@ -34,7 +33,7 @@
 
 <script>
 import { Head, Link } from '@inertiajs/vue3'
-import Layout from '@/Shared/Layout.vue'
+import Layout from '@/Layout/Layout.vue'
 import TextInput from '@/Shared/TextInput.vue'
 import FileInput from '@/Shared/FileInput.vue'
 import SelectInput from '@/Shared/SelectInput.vue'
@@ -54,6 +53,7 @@ export default {
   layout: Layout,
   props: {
     user: Object,
+    roles: Array
   },
   remember: 'form',
   data() {
@@ -64,13 +64,16 @@ export default {
         last_name: this.user.last_name,
         email: this.user.email,
         password: '',
-        owner: this.user.owner,
         photo: null,
+        roles: this.user.roles,
       }),
+      
     }
   },
   methods: {
     update() {
+
+      console.log(this.form);
       this.form.post(`/users/${this.user.id}`, {
         onSuccess: () => this.form.reset('password', 'photo'),
       })

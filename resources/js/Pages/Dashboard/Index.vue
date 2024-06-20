@@ -8,7 +8,7 @@
 
 <script>
 import { Head } from '@inertiajs/vue3'
-import Layout from '@/Shared/Layout.vue'
+import Layout from '@/Layout/Layout.vue'
 
 export default {
   components: {
