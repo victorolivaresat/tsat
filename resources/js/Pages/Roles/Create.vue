@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <PermissionCheck :permission="'roles.edit'">
 
         <Head title="Create Role" />
         <h1 class="mb-8 text-3xl font-bold">
@@ -8,12 +8,23 @@
             Create
         </h1>
         <form @submit.prevent="store" class="grid grid-cols-1 md:grid-cols-2 gap-10">
-            <div class="bg-white rounded-md shadow md:col-span-1 md:h-64">
+            <div class="bg-white rounded-md shadow md:col-span-1">
                 <div class="flex flex-wrap -mb-8 -mr-6 px-8 py-10">
-                    <text-input v-model="form.name" :error="form.errors.name" class="pb-8 pr-6 w-full lg:w-1/2"
-                        label="Name" />
-                    <textarea-input v-model="form.slug" :error="form.errors.slug" rows="3"
-                        class="pb-8 pr-6 w-full lg:w-1/2" label="Slug" />
+                    <text-input v-model="form.name" :error="form.errors.name" class="pb-8 pr-6 w-full lg:w-1/2" label="Name" />
+                    <textarea-input v-model="form.slug" :error="form.errors.slug" rows="4" class="pb-8 pr-6 w-full lg:w-1/2" label="Slug" />
+                    <div class="flex mr-6 p-4 mb-4 text-sm text-blue-800 rounded-lg bg-blue-50 w-full" role="alert">
+                        <span class="sr-only">Info</span>
+                        <div>
+                            <span class="font-medium">Permissions Recommendations:</span>
+                            <ul class="mt-1.5 list-disc list-inside">
+                                <li>Assign permissions based on the principle of least privilege.</li>
+                                <li>Regularly review and audit role permissions.</li>
+                                <li>Group similar permissions to simplify role management.</li>
+                                <li>Avoid assigning critical permissions to multiple roles.</li>
+                                <li>Ensure role-based access controls are aligned with business needs.</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="bg-white p-8 rounded-md shadow md:col-span-1">
@@ -56,7 +67,7 @@
                 <loading-button :loading="form.processing" class="btn-indigo" type="submit">Create Role</loading-button>
             </div>
         </form>
-    </div>
+    </PermissionCheck>
 </template>
 
 <script>
@@ -65,6 +76,7 @@ import Layout from '@/Layout/Layout.vue'
 import TextInput from '@/Shared/TextInput.vue'
 import TextareaInput from '@/Shared/TextareaInput.vue'
 import LoadingButton from '@/Shared/LoadingButton.vue'
+import PermissionCheck from '@/Shared/PermissionCheck.vue'
 
 export default {
     components: {
@@ -72,7 +84,8 @@ export default {
         Link,
         TextInput,
         TextareaInput,
-        LoadingButton
+        LoadingButton,
+        PermissionCheck
     },
     layout: Layout,
     props: {

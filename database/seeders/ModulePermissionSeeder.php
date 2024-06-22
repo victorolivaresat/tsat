@@ -22,7 +22,6 @@ class ModulePermissionSeeder extends Seeder
             ['module_id' => $modules['Users'], 'permission_id' => $permissions['users.index']],
             ['module_id' => $modules['Users'], 'permission_id' => $permissions['users.edit']],
             ['module_id' => $modules['Users'], 'permission_id' => $permissions['users.delete']],
-            ['module_id' => $modules['Users'], 'permission_id' => $permissions['users.profile']],
 
             // Roles
             ['module_id' => $modules['Roles'], 'permission_id' => $permissions['roles.create']],

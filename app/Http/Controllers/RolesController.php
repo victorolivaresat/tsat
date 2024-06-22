@@ -46,8 +46,8 @@ class RolesController extends Controller
     public function store(): RedirectResponse
     {
         Request::validate([
-            'slug' => ['required', 'max:50', 'unique:roles'],
-            'name' => ['required', 'max:50'],
+            'slug' => ['required', 'max:100', 'unique:roles'],
+            'name' => ['required', 'max:100'],
             'permissions' => ['required', 'array'],
         ]);
 
@@ -81,8 +81,8 @@ class RolesController extends Controller
     public function update(Role $role): RedirectResponse
     {
         Request::validate([
-            'slug' => ['required', 'max:50', Rule::unique('roles')->ignore($role->id)],
-            'name' => ['required', 'max:50'],
+            'slug' => ['required', 'max:100', Rule::unique('roles')->ignore($role->id)],
+            'name' => ['required', 'max:100'],
             'permissions' => ['required', 'array'],
         ]);
 

@@ -1,6 +1,5 @@
 <template>
-  <div>
-
+  <PermissionCheck :permission="'users.index'">
     <Head title="Users" />
     <h1 class="mb-8 text-3xl font-bold">Users</h1>
     <div class="flex items-center justify-between mb-6">
@@ -73,11 +72,12 @@
       </table>
     </div>
     <pagination class="mt-6" :links="users.links" />
-  </div>
+  </PermissionCheck>
 </template>
 
 <script>
 
+import PermissionCheck from '../../Shared/PermissionCheck.vue'
 import SearchFilter from '@/Shared/SearchFilter.vue'
 import Pagination from '@/Shared/Pagination.vue'
 import { Head, Link } from '@inertiajs/vue3'
@@ -88,15 +88,15 @@ import throttle from 'lodash/throttle'
 import Icon from '@/Shared/Icon.vue'
 import pickBy from 'lodash/pickBy'
 
-
 export default {
   components: {
     Head,
     Icon,
     Link,
     Switch,
-    SearchFilter,
     Pagination,
+    SearchFilter,
+    PermissionCheck,
   },
   layout: Layout,
   props: {
@@ -129,7 +129,7 @@ export default {
         preserveScroll: true,
       })
     },
-
   },
+
 }
 </script>

@@ -42,6 +42,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('users/{user}', [UsersController::class, 'destroy'])->name('users.destroy');
     Route::put('users/{user}/restore', [UsersController::class, 'restore'])->name('users.restore');
     Route::put('/users/{user}/toggle-status', [UsersController::class, 'toggleStatus'])->name('users.toggle-status');
+    Route::inertia('/users/profile', 'Users/Profile');
 
 
     // Roles

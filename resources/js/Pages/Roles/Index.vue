@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <PermissionCheck :permission="'roles.index'">
     <Head title="Roles" />
     <h1 class="mb-8 text-3xl font-bold">Roles</h1>
     <div class="flex items-center justify-between mb-6">
@@ -45,7 +45,7 @@
       </table>
     </div>
     <pagination class="mt-6" :links="roles.links" />
-  </div>
+  </PermissionCheck>
 </template>
 
 <script>
@@ -58,6 +58,7 @@ import mapValues from 'lodash/mapValues'
 import Pagination from '@/Shared/Pagination.vue'
 import SearchFilter from '@/Shared/SearchFilter.vue'
 import TextInput from '@/Shared/TextInput.vue'
+import PermissionCheck from '@/Shared/PermissionCheck.vue'
 
 export default {
   components: {
@@ -67,6 +68,7 @@ export default {
     Pagination,
     SearchFilter,
     TextInput,
+    PermissionCheck,
   },
   layout: Layout,
   props: {

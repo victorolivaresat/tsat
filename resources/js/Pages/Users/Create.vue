@@ -1,5 +1,6 @@
 <template>
-  <div>
+
+  <PermissionCheck :permission="'users.create'">
 
     <Head title="Create User" />
     <h1 class="mb-8 text-3xl font-bold">
@@ -28,7 +29,7 @@
         </div>
       </form>
     </div>
-  </div>
+  </PermissionCheck>
 </template>
 
 <script>
@@ -38,6 +39,7 @@ import FileInput from '@/Shared/FileInput.vue'
 import TextInput from '@/Shared/TextInput.vue'
 import SelectInput from '@/Shared/SelectInput.vue'
 import LoadingButton from '@/Shared/LoadingButton.vue'
+import PermissionCheck from '../../Shared/PermissionCheck.vue'
 
 export default {
   components: {
@@ -47,6 +49,7 @@ export default {
     LoadingButton,
     SelectInput,
     TextInput,
+    PermissionCheck
   },
   props: {
     roles: Array

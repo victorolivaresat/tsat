@@ -38,12 +38,6 @@ class PermissionSeeder extends Seeder
             'created_at' => now(),
             'updated_at' => now()
         ]);
-        DB::table('permissions')->insert([
-            'name' => 'User Profile',
-            'slug' => 'users.profile',
-            'created_at' => now(),
-            'updated_at' => now()
-        ]);
 
         // Roles
         DB::table('permissions')->insert([

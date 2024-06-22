@@ -12,8 +12,8 @@ import Layout from '@/Layout/Layout.vue'
 
 export default {
   components: {
-    Head,
+    Head
   },
-  layout: Layout,
+  layout: Layout
 }
 </script>
