@@ -1,14 +1,18 @@
 <?php
-
 namespace App\Console\Commands;
 
+use PhpImap\Exceptions\ConnectionException;
 use Illuminate\Console\Command;
-use Carbon\Carbon;
+use PhpImap\Mailbox;
 
 class ProcessEmails extends Command
 {
-
-    protected $signature = 'app:process-emails';
+    protected $signature = 'app:process-emails 
+                            {--unread : Process unread emails}
+                            {--all : Process all emails}
+                            {--since= : Process emails since date (YYYYMMDD)}
+                            {--before= : Process emails before date (YYYYMMDD)}
+                            {--folder= : Destination folder for processed emails}';
     protected $description = 'Process unread emails';
 
     public function __construct()
@@ -18,203 +22,154 @@ class ProcessEmails extends Command
 
     public function handle()
     {
-        // Configurar conexión IMAP
-        $imapPath = '{' . env('IMAP_HOST') . ':' . env('IMAP_PORT') . '/' . env('IMAP_ENCRYPTION') . '}' . env('IMAP_MAILBOX');
-        $imapStream = imap_open($imapPath, env('IMAP_USERNAME'), env('IMAP_PASSWORD'));
+        // IMAP configuration
+        $host = env('IMAP_HOST');
+        $port = env('IMAP_PORT');
+        $encryption = env('IMAP_ENCRYPTION');
+        $username = env('IMAP_USERNAME');
+        $password = env('IMAP_PASSWORD');
+        $imapPath = '{' . $host . ':' . $port . '/imap/' . $encryption . '}INBOX';
 
-        if (!$imapStream) {
-            $this->error('No se pudo conectar al servidor IMAP.');
-            return;
-        }
+        $mailbox = new Mailbox($imapPath, $username, $password);
+        $mailbox->setAttachmentsIgnore(true);
 
-        // Obtener correos no leídos
-        $emails = imap_search($imapStream, 'UNSEEN');
-
-        if (!$emails) {
-            $this->info('No hay correos nuevos para procesar.');
-            imap_close($imapStream);
-            return;
-        }
-
-        // Procesar correos
-        foreach ($emails as $emailId) {
-            $headerInfo = imap_headerinfo($imapStream, $emailId);
-            $from = $headerInfo->from[0]->mailbox . '@' . $headerInfo->from[0]->host;
-            $subject = $this->decodeMimeStr($headerInfo->subject);
-            $date = Carbon::parse($headerInfo->date);
-
-            $body = trim(utf8_encode(quoted_printable_decode(imap_fetchbody($imapStream, $emailId, 1))));
-            
-            // if (preg_match('/^([a-zA-Z0-9]{76} )+[a-zA-Z0-9]{76}$/', $body)) {
-            //     $body = base64_decode($body);
-            // }
-
-            // Procesar el correo según el remitente y el asunto
-            // $this->processEmail($from, $subject, $body, $date);
-
-            $this->info('Correo procesado correctamente.');
-            $this->info('Fecha: ' . $date->format('Y-m-d H:i:s'));
-            $this->info('Remitente: ' . $from);
-            $this->info('Asunto: ' . $subject);
-            $this->info('Cuerpo: ' . $body);
-
-            // Marcar correo como leído
-            imap_setflag_full($imapStream, $emailId, "\\Seen");
-        }
-
-        // Cerrar conexión IMAP
-        imap_close($imapStream);
-
-        $this->info('Correos procesados correctamente.');
-    }
-
-
-    private function decodeMimeStr($string, $charset = 'UTF-8')
-    {
-        $elements = imap_mime_header_decode($string);
-        $decodedStr = '';
-
-        foreach ($elements as $element) {
-            if (isset($element->charset) && strtolower($element->charset) !== 'default') {
-                $decodedStr .= iconv($element->charset, $charset, $element->text);
+        try {
+            // Determinar criterio de búsqueda
+            if ($this->option('all')) {
+                $emails = $mailbox->searchMailbox('ALL');
+            } elseif ($this->option('since')) {
+                $since = $this->option('since');
+                $criteria = 'SINCE "' . $since . '"';
+                if ($this->option('before')) {
+                    $before = $this->option('before');
+                    $criteria .= ' BEFORE "' . $before . '"';
+                }
+                $emails = $mailbox->searchMailbox($criteria);
             } else {
-                $decodedStr .= $element->text;
+                // Por defecto, leer correos no leídos
+                $emails = $mailbox->searchMailbox('UNSEEN');
             }
+
+            // Configurar carpeta de destino
+            $defaultFolder = 'Procesados';
+            $folder = $this->option('folder') ?? $defaultFolder;
+            $this->info('Emails found: ' . count($emails));
+
+            foreach ($emails as $mail) {
+                $email = $mailbox->getMail($mail, true);
+                $fromEmail = $email->fromAddress;
+                $subject = $email->subject;
+                $bodyText = $email->textPlain ? $email->textPlain : $this->convertHtmlToText($email->textHtml);
+                $bodyText = $this->cleanText($bodyText);
+
+                // Procesar según el remitente
+                if ($fromEmail == 'bancaporinternet@empresas.interbank.pe') {
+                    $this->processInterbankEmail($subject, $bodyText);
+                    $mailbox->moveMail($mail, $folder);
+                } elseif ($fromEmail == 'notificaciones@notificacionesbcp.com.pe') {
+                    $this->processBCPEmail($subject, $bodyText);
+                    $mailbox->moveMail($mail, $folder);
+                }
+            }
+
+        } catch (ConnectionException $ex) {
+            $this->error("IMAP connection failed: " . $ex->getMessage());
+            return;
+        } catch (\Exception $ex) {
+            $this->error("Error: " . $ex->getMessage());
+            return;
+        } finally {
+            $mailbox->disconnect();
+        }
+    }
+
+
+    private function convertHtmlToText($html)
+    {
+        $html = preg_replace('/<style\b[^>]*>(.*?)<\/style>/is', '', $html);
+        $text = strip_tags(html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+        return $text;
+    }
+
+    private function cleanText($text)
+    {
+        $text = str_replace(["\r", "\n", "\t"], ' ', $text);
+        $text = preg_replace('/\s+/', ' ', $text);
+        $text = trim($text);
+
+        return $text;
+    }
+
+    private function processInterbankEmail($subject, $bodyText)
+    {
+        if ($subject == 'Constancia de Transferencia a terceros') {
+            // Patterns to extract necessary data
+            $patterns = [
+                'request_number' => '/Número de solicitud: (\d+)/',
+                'date' => '/Fecha: (\d{2}\/\d{2}\/\d{4})/',
+                'time' => '/Hora: (\d{1,2}:\d{2} (A\.M\.|P\.M\.))/i',
+                'from' => '/De:\s*([^\n\r]+)\s*Para:/s',
+                'to' => '/Para:\s*([^\n\r]+)\s*Cuenta de cargo:/s',
+                'account_debit' => '/Cuenta de cargo:\s*([^\n\r]+)\s*Cuenta de destino:/s',
+                'account_destination' => '/Cuenta de destino:\s*([^\n\r]+)\s*Estado:/s',
+                'status' => '/Estado:\s*([^\n\r]+)\s*Monto:/s',
+                'amount' => '/Monto:\s*([^\n\r]+)\s*Para cualquier/s',
+            ];
+
+            $data = [];
+
+            foreach ($patterns as $key => $pattern) {
+                preg_match($pattern, $bodyText, $matches);
+                $data[$key] = isset($matches[1]) ? trim($matches[1]) : '';
+            }
+
+            if (!empty($data['amount'])) {
+                $data['amount'] = str_replace(['S/', ',', '.'], ['', '', '.'], $data['amount']);
+            }
+
+            echo "Result:\n";
+            print_r($data);
+
+            return $data;
         }
 
-        return $decodedStr;
+        return null;
     }
 
-    private function extractTextFromBody($body)
-{
-    // Convertir el cuerpo del correo a texto plano
-    $text = imap_utf8($body); // Convertir a UTF-8 si es necesario
-    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    $text = preg_replace('/\R/u', ' ', $text); // Reemplazar saltos de línea con espacios
-    $text = strip_tags($text); // Eliminar etiquetas HTML
-    $text = htmlspecialchars_decode($text, ENT_QUOTES | ENT_HTML5); // Decodificar caracteres especiales HTML
-    $text = trim(preg_replace('/\s+/', ' ', $text)); // Eliminar espacios en blanco adicionales
-
-    return $text;
-}
-
-
-
-    private function processEmail($from, $subject, $body, $date)
+    private function processBCPEmail($subject, $bodyText)
     {
-        // Procesar correos según remitente y asunto
-        if ($from === 'notificaciones@notificacionesbcp.com.pe') {
-            // Procesar correos de notificaciones BCP
-            if ($subject === 'Transferencia a su favor desde Telecrédito BCP') {
-                $this->processBcpNotificationsEmail($body, $date);
+        if ($subject == 'Transferencia a su favor desde Telecrédito BCP') {
+            // Patterns to extract necessary data
+            $patterns = [
+                'operation_type' => '/Tipo de operación\s*([^\n\r]+)\s*Fecha/',
+                'operation_number' => '/Número de operación (\d+)/',
+                'date_time' => '/Fecha y hora\s+(\d{2}\/\d{2}\/\d{4}\s+-\s+\d{1,2}:\d{2})/i',
+                'ordering_company' => '/Empresa ordenante\s+([\w\s.]+)\s+Cuenta/',
+                'origin_account' => '/Cuenta\s+(\d+-[\w-]+)\s+Tipo de cuenta/',
+                'beneficiary' => '/Beneficiario\s+([\w\s.]+)\s+Cuenta/',
+                'destination_account' => '/Cuenta\s+(\d+-[\w-]+)\s+Monto/',
+                'amount' => '/Monto\s+(S\/ [\d,.]+)/',
+            ];
+
+            $data = [];
+
+            foreach ($patterns as $key => $pattern) {
+                preg_match($pattern, $bodyText, $matches);
+                $data[$key] = isset($matches[1]) ? trim($matches[1]) : '';
             }
-        } elseif ($from === 'bancaporinternet@empresas.interbank.pe') {
-            // Procesar correos de notificaciones Interbank
-            if ($subject === 'Constancia de Transferencia a terceros') {
-                $this->processInterbankCompanysEmail($body, $date);
+
+            if (!empty($data['amount'])) {
+                $data['amount'] = str_replace(['S/', ',', '.'], ['', '', '.'], $data['amount']);
             }
+
+            echo "BCP Transaction Data:\n";
+            print_r($data);
+
+            return $data;
         }
+
+        return null;
     }
 
-
-
-    private function processBcpNotificationsEmail($body, $date)
-    {
-        $cuentaRegex = '/Cuenta\s*([\d-]+)/';
-        $messageType = $this->extractDataFromBody($body, '/Mensaje\s*(.*)/');
-        $startsWithKeyword = preg_match('/Si Ud\. es cliente de Telecrédito/', $messageType);
-        preg_match_all($cuentaRegex, $body, $matches);
-        $cuenta1 = $matches[1][0] ?? null;
-        $cuenta2 = $matches[1][1] ?? null;
-
-        $amountString = $this->extractDataFromBody($body, '/S\/(.*)/');
-        $amountNumeric = floatval(str_replace(',', '', $amountString));
-
-        // Restar 5 horas a la fecha
-        $adjustedDate = $date->subHours(5);
-
-        $operationNumber = $this->extractDataFromBody($body, '/Número de operación\s*(.*)/');
-
-        // Validar si el registro ya existe
-        // $existingNotification = BcpNotification::where('operationNumber', $operationNumber)
-        //     ->where('dateTime', $adjustedDate)
-        //     ->first();
-
-        // if (!$existingNotification) {
-        //     BcpNotification::create([
-        //         'operationType' => $this->extractDataFromBody($body, '/Tipo de operación\s*(.*)/'),
-        //         'dateTime' => $adjustedDate,
-        //         'operationNumber' => $operationNumber,
-        //         'orderingCompany' => 'BUSINESS ADMINISTRATION SAC',
-        //         'account' => $this->extractDataFromBody($body, '/Cuenta\s*(.*)/'),
-        //         'accountType' => $this->extractDataFromBody($body, '/Tipo de cuenta\s*(.*)/'),
-        //         'beneficiary' => str_replace(['Ñ', '-'], ['N', ' '], $this->extractDataFromBody($body, '/Beneficiario\s*(.*)/')),
-        //         'destinationAccount' => str_replace('-', '', $cuenta2),
-        //         'amount' => $amountNumeric,
-        //         'reference' => $this->extractDataFromBody($body, '/Referencia\s*(.*)/'),
-        //         'message' => $startsWithKeyword ? null : $messageType,
-        //         'bank' => 'BCP',
-        //         'validacion' => 'No Validado',
-        //     ]);
-        // }
-    }
-
-    private function processInterbankCompanysEmail($body, $date)
-    {
-        $amountString = $this->extractDataFromBody($body, '/S\/(.*)/');
-        $amountNumeric = floatval(str_replace(',', '', $amountString));
-
-        // Restar 5 horas a la fecha
-        $adjustedDate = $date->subHours(5);
-
-        $regex = '/Para:(.*?)Cuenta de cargo:/s';
-        preg_match($regex, $body, $match);
-        $textoExtraido2 = $match[1] ?? null;
-
-        $orderingCompanyRegex = '/De:\s*(.*?)(?=Para:)/';
-        $beneficiaryRegex = '/Para:\s*(.*?)Cuenta\s+de\s+cargo:/s';
-        $accountChargeRegex = '/Cuenta\s+de\s+cargo:\s*(.*?)Cuenta\s+de\s+destino:/';
-        $accountDestinationRegex = '/Cuenta\s+de\s+destino:\s*([\w\s-]+)(?!\SEstado)/';
-        $statusRegex = '/Estado:\s*(.*?)Monto:/';
-        $numberApplicationRegex = '/Número de solicitud:\s*(.*)/';
-
-        $orderingCompany = $this->extractDataFromBody($body, $orderingCompanyRegex);
-        $beneficiary = $this->extractDataFromBody($body, $beneficiaryRegex);
-        $accountCharge = $this->extractDataFromBody($body, $accountChargeRegex);
-        $accountDestination = str_replace('-', '', $this->extractDataFromBody($body, $accountDestinationRegex));
-        $status = $this->extractDataFromBody($body, $statusRegex);
-        $numberApplication = $this->extractDataFromBody($body, $numberApplicationRegex);
-
-        $beneficiary2 = $beneficiary ?? $textoExtraido2;
-
-        $this->info('Beneficiario: ' . $beneficiary2);
-        $this->info('Cuenta de cargo: ' . $accountCharge);
-        $this->info('Cuenta de destino: ' . $accountDestination);
-        $this->info('Estado: ' . $status);
-        $this->info('Número de aplicación: ' . $numberApplication);
-        $this->info('Monto: ' . $amountNumeric);
-        $this->info('Fecha: ' . $adjustedDate->format('Y-m-d H:i:s'));
-        $this->info('Orden de compra: ' . $orderingCompany);
-
-
-        // Validar si el registro ya existe
-        // $existingNotification = InterbankCompany::where('numberApplication', trim($numberApplication))
-        //     ->where('dateTime', $adjustedDate)
-        //     ->first();
-
-        // if (!$existingNotification) {
-        //     InterbankCompany::create([
-        //         'orderingCompany' => trim($orderingCompany),
-        //         'beneficiary' => str_replace(['Ñ', '-'], ['N', ' '], $beneficiary2),
-        //         'accountCharge' => trim($accountCharge),
-        //         'accountDestination' => trim(str_replace(['Ahorros Soles', 'Estado'], '', $accountDestination)),
-        //         'status' => trim($status),
-        //         'numberApplication' => trim($numberApplication),
-        //         'amount' => $amountNumeric,
-        //         'dateTime' => $adjustedDate,
-        //         'bank' => 'Interbank',
-        //         'validacion' => 'No Validado',
-        //     ]);
-        // }
-    }
 }
