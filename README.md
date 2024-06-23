@@ -69,6 +69,7 @@ You're ready to go! Visit Ping CRM in your browser, and login with:
 
 ---
 
+## Comandos para procesar correos
 
 Leer todos los correos y mover a la carpeta 'Backup'
 ```sh
