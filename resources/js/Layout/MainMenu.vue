@@ -16,26 +16,33 @@
       </Link>
     </div>
 
-    <!-- Organizations with Submenu -->
-    <!-- <div class="mb-4">
-      <div @click="toggleSubMenu('organizations')" class="group flex items-center py-3 cursor-pointer">
-        <icon name="office" class="mr-2 w-4 h-4" :class="isUrl('organizations') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
-        <div :class="isUrl('organizations') ? 'text-white' : 'text-indigo-300 group-hover:text-white'" class="flex">
-          Organizations
-          <ChevronDownIcon class="ml-1 w-4 h-4" :class="subMenus.organizations ? 'transform rotate-180' : ''" />
+    <!-- Notifications with Submenu -->
+    <div class="mb-4">
+      <div @click="toggleSubMenu('notifications')" class="group flex items-center py-3 cursor-pointer">
+        <PhBellSimple class="mr-2 w-4 h-4" :class="isUrl('notifications') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
+        <div :class="isUrl('notifications') || isUrl('system-data') || isUrl('transactions') ? 'text-white' : 'text-indigo-300 group-hover:text-white'" class="flex">
+          Notifications
+          <AkChevronDownSmall class="ml-1 w-4 h-3" :class="subMenus.notifications ? 'transform rotate-180' : ''" />
         </div>
       </div>
-      <div v-if="subMenus.organizations" class="pl-6">
-        <Link class="group flex items-center py-2" href="/organizations">
-          <icon name="sub1-icon" class="mr-2 w-4 h-4" :class="isUrl('organizations') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
-          <div :class="isUrl('organizations') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">Submenu 1</div>
+      <div v-if="subMenus.notifications" class="pl-6">
+        <Link class="group flex items-center py-2" href="/notifications"> 
+          <div :class="isUrl('notifications') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">
+            Dashboard
+          </div>
         </Link>
-        <Link class="group flex items-center py-2" href="/organizations/sub2">
-          <icon name="sub2-icon" class="mr-2 w-4 h-4" :class="isUrl('organizations/sub2') ? 'fill-white' : 'fill-indigo-400 group-hover:fill-white'" />
-          <div :class="isUrl('organizations/sub2') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">Submenu 2</div>
+        <Link class="group flex items-center py-2" href="/system-data">
+          <div :class="isUrl('system-data') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">
+            Data Load
+          </div>
+        </Link>
+        <Link class="group flex items-center py-2" href="/transactions/system">
+          <div :class="isUrl('transactions/system') ? 'text-white' : 'text-indigo-300 group-hover:text-white'">
+            Transactions
+          </div>
         </Link>
       </div>
-    </div> -->
+    </div>
     
     <!-- Contacts -->
     <!-- <div class="mb-4">
@@ -57,15 +64,18 @@
 
 
 <script>
+
+import { AkChevronDownSmall } from '@kalimahapps/vue-icons';
+import { PhBellSimple } from '@kalimahapps/vue-icons';
 import { Link } from '@inertiajs/vue3'
 import Icon from '@/Shared/Icon.vue'
-import { ChevronDownIcon } from '@heroicons/vue/24/outline'
 
 export default {
   components: {
     Icon,
     Link,
-    ChevronDownIcon
+    PhBellSimple,
+    AkChevronDownSmall
   },
   data() {
     return {

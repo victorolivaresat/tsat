@@ -17,8 +17,11 @@
         "laravel/framework": "^11.1",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
+        "league/csv": "^9.16",
         "league/glide-symfony": "^2.0",
-        "php-imap/php-imap": "dev-master"
+        "maatwebsite/excel": "^3.1",
+        "php-imap/php-imap": "dev-master",
+        "soundasleep/html2text": "^2.1"
     },
     "require-dev": {
         "larastan/larastan": "^2.8",

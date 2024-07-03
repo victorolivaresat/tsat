@@ -3,7 +3,14 @@ namespace App\Console\Commands;
 
 use PhpImap\Exceptions\ConnectionException;
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
+use Soundasleep\Html2Text;
 use PhpImap\Mailbox;
+use Carbon\Carbon;
+use Throwable;
+
+use App\Models\IbkNotification;
+use App\Models\BcpNotification;
 
 class ProcessEmails extends Command
 {
@@ -34,7 +41,6 @@ class ProcessEmails extends Command
         $mailbox->setAttachmentsIgnore(true);
 
         try {
-            // Determinar criterio de búsqueda
             if ($this->option('all')) {
                 $emails = $mailbox->searchMailbox('ALL');
             } elseif ($this->option('since')) {
@@ -46,11 +52,9 @@ class ProcessEmails extends Command
                 }
                 $emails = $mailbox->searchMailbox($criteria);
             } else {
-                // Por defecto, leer correos no leídos
                 $emails = $mailbox->searchMailbox('UNSEEN');
             }
 
-            // Configurar carpeta de destino
             $defaultFolder = 'Procesados';
             $folder = $this->option('folder') ?? $defaultFolder;
             $this->info('Emails found: ' . count($emails));
@@ -59,10 +63,9 @@ class ProcessEmails extends Command
                 $email = $mailbox->getMail($mail, true);
                 $fromEmail = $email->fromAddress;
                 $subject = $email->subject;
-                $bodyText = $email->textPlain ? $email->textPlain : $this->convertHtmlToText($email->textHtml);
+                $bodyText = $email->textPlain ? $email->textPlain : Html2Text::convert($email->textHtml);
                 $bodyText = $this->cleanText($bodyText);
 
-                // Procesar según el remitente
                 if ($fromEmail == 'bancaporinternet@empresas.interbank.pe') {
                     $this->processInterbankEmail($subject, $bodyText);
                     $mailbox->moveMail($mail, $folder);
@@ -75,21 +78,12 @@ class ProcessEmails extends Command
         } catch (ConnectionException $ex) {
             $this->error("IMAP connection failed: " . $ex->getMessage());
             return;
-        } catch (\Exception $ex) {
+        } catch (Throwable $ex) {
             $this->error("Error: " . $ex->getMessage());
             return;
         } finally {
             $mailbox->disconnect();
         }
-    }
-
-
-    private function convertHtmlToText($html)
-    {
-        $html = preg_replace('/<style\b[^>]*>(.*?)<\/style>/is', '', $html);
-        $text = strip_tags(html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-
-        return $text;
     }
 
     private function cleanText($text)
@@ -104,7 +98,6 @@ class ProcessEmails extends Command
     private function processInterbankEmail($subject, $bodyText)
     {
         if ($subject == 'Constancia de Transferencia a terceros') {
-            // Patterns to extract necessary data
             $patterns = [
                 'request_number' => '/Número de solicitud: (\d+)/',
                 'date' => '/Fecha: (\d{2}\/\d{2}\/\d{4})/',
@@ -125,12 +118,33 @@ class ProcessEmails extends Command
             }
 
             if (!empty($data['amount'])) {
-                $data['amount'] = str_replace(['S/', ',', '.'], ['', '', '.'], $data['amount']);
+                $data['amount'] = floatval(preg_replace('/[^\d.]/', '', str_replace(['S/', ','], '', $data['amount'])));
             }
 
-            echo "Result:\n";
-            print_r($data);
+            if (!empty($data['date']) && !empty($data['time'])) {
+                $dateTime = Carbon::createFromFormat('d/m/Y g:i A', $data['date'] . ' ' . $data['time']);
+                $data['date_time'] = $dateTime->format('Y-m-d H:i:s');
+            }
 
+            $data['to'] = Str::title(str_replace(['ñ', 'Ñ'], 'n', $data['to']));
+
+            if (!empty($data['account_destination'])) {
+                $cleanedAccount = preg_replace('/Ahorros Soles\s*|\s*-/', '', $data['account_destination']);
+                $data['account_destination'] = preg_replace('/\s+/', '', $cleanedAccount);
+            }
+
+            $ibkNotification = new IbkNotification([
+                'ordering_company' => $data['from'],
+                'beneficiary' => $data['to'],
+                'account_charge' => $data['account_debit'],
+                'account_destination' => $data['account_destination'],
+                'payment_status' => $data['status'],
+                'number_application' => $data['request_number'],
+                'amount' => $data['amount'],
+                'date_time' => $data['date_time'],
+            ]);
+
+            $ibkNotification->save();
             return $data;
         }
 
@@ -138,16 +152,15 @@ class ProcessEmails extends Command
     }
 
     private function processBCPEmail($subject, $bodyText)
-    {
+    {   
         if ($subject == 'Transferencia a su favor desde Telecrédito BCP') {
-            // Patterns to extract necessary data
             $patterns = [
                 'operation_type' => '/Tipo de operación\s*([^\n\r]+)\s*Fecha/',
                 'operation_number' => '/Número de operación (\d+)/',
                 'date_time' => '/Fecha y hora\s+(\d{2}\/\d{2}\/\d{4}\s+-\s+\d{1,2}:\d{2})/i',
                 'ordering_company' => '/Empresa ordenante\s+([\w\s.]+)\s+Cuenta/',
                 'origin_account' => '/Cuenta\s+(\d+-[\w-]+)\s+Tipo de cuenta/',
-                'beneficiary' => '/Beneficiario\s+([\w\s.]+)\s+Cuenta/',
+                'beneficiary' => '/Beneficiario\s+([A-ZÁ-Úa-zá-ú\s-]+)\s+Cuenta/',
                 'destination_account' => '/Cuenta\s+(\d+-[\w-]+)\s+Monto/',
                 'amount' => '/Monto\s+(S\/ [\d,.]+)/',
             ];
@@ -162,10 +175,31 @@ class ProcessEmails extends Command
             if (!empty($data['amount'])) {
                 $data['amount'] = str_replace(['S/', ',', '.'], ['', '', '.'], $data['amount']);
             }
+            
+            if (!empty($data['date_time'])) {
+                $dateTime = Carbon::createFromFormat('d/m/Y - H:i', $data['date_time']);
+                $data['date_time'] = $dateTime->format('Y-m-d H:i:s');
+            }
 
-            echo "BCP Transaction Data:\n";
-            print_r($data);
+            $data['beneficiary'] = Str::title(str_replace(['ñ', 'Ñ'], 'n', $data['beneficiary']));
+            $data['beneficiary'] = str_replace('-', ' ', $data['beneficiary']);
 
+            if (!empty($data['destination_account'])) {
+                $data['destination_account'] = str_replace('-', '', $data['destination_account']);
+            }
+
+            $bcpNotification = new BcpNotification([
+                'operation_type' => $data['operation_type'],
+                'date_time' => $data['date_time'],
+                'operation_number' => $data['operation_number'],
+                'ordering_company' => $data['ordering_company'],
+                'account_charge' => $data['origin_account'],
+                'beneficiary' => $data['beneficiary'],
+                'account_destination' => $data['destination_account'],
+                'amount' => $data['amount'],
+            ]);
+
+            $bcpNotification->save();
             return $data;
         }
 

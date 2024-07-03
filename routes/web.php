@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\NotificationsController;
+use App\Http\Controllers\TransactionsController;
+use App\Http\Controllers\SystemDataController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImagesController;
 use App\Http\Controllers\UsersController;
@@ -53,7 +56,27 @@ Route::middleware('auth')->group(function () {
     Route::put('roles/{role}', [RolesController::class, 'update'])->name('roles.update');
     Route::delete('roles/{role}', [RolesController::class, 'destroy'])->name('roles.destroy');
 
+    // Notifications
+    Route::get('notifications', [NotificationsController::class, 'index'])->name('notifications');
+    Route::post('notifications/process-emails', [NotificationsController::class, 'processEmails'])->name('notifications.process-emails');
+
+    // Transactions
+    Route::get('transactions/system', [TransactionsController::class, 'system'])->name('transactions.system');
+    Route::get('transactions/bcp', [TransactionsController::class, 'bcp'])->name('transactions.bcp');
+    Route::get('transactions/ibk', [TransactionsController::class, 'ibk'])->name('transactions.ibk');
+    
+    // Data Load
+    Route::inertia('system-data', 'Notifications/Upload');
+    Route::post('system-data/upload', [SystemDataController::class, 'upload'])->name('system-data.upload');
+    Route::get('system-data/transactions-per-day', [SystemDataController::class, 'transactionsPerDay'])->name('system-data.transactions-per-day');
+
+   
 });
 
 // Images
 Route::get('/img/{path}', [ImagesController::class, 'show']) ->where('path', '.*')->name('image');
+
+
+
+
+
